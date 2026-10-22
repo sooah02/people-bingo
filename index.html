@@ -1,0 +1,459 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="robots" content="noindex">
+<style>html, body { margin: 0; }</style>
+<title>사람 빙고</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700;800&display=swap">
+<style>
+/* 레이아웃: 휴대폰 한 손 화면. 연회색 바탕 위 흰 카드, 강조는 남색 한 가지. 위에 제목·상태, 가운데 빙고판, 칸을 누르면 아래에서 입력창 */
+:root {
+  --bg: #F4F5F9;
+  --surface: #FFFFFF;
+  --soft: #F0F1F7;
+  --ink: #14172B;
+  --muted: #6A6F86;
+  --line: #E1E3EE;
+  --accent: #2C38B5;
+  --accent-ink: #FFFFFF;
+  --accent-soft: #ECEEFC;
+  --warn: #B9412B;
+  --scrim: rgba(20, 23, 43, .45);
+  --f-body: "Noto Sans KR", "Apple SD Gothic Neo", "Malgun Gothic", system-ui, sans-serif;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0E1020; --surface: #171A2E; --soft: #1E2138; --ink: #ECEEF8; --muted: #9AA0BC; --line: #2A2E4A;
+    --accent: #8E98FF; --accent-ink: #0E1020; --accent-soft: #252A5E; --warn: #FF8C74; --scrim: rgba(0, 0, 0, .6);
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #0E1020; --surface: #171A2E; --soft: #1E2138; --ink: #ECEEF8; --muted: #9AA0BC; --line: #2A2E4A;
+  --accent: #8E98FF; --accent-ink: #0E1020; --accent-soft: #252A5E; --warn: #FF8C74; --scrim: rgba(0, 0, 0, .6);
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+html, body { min-height: 100%; }
+body {
+  background: var(--bg); color: var(--ink); font-family: var(--f-body); font-size: 15px; line-height: 1.55;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+  padding-block: 28px 48px;
+  -webkit-font-smoothing: antialiased;
+  word-break: keep-all; overflow-wrap: break-word;
+}
+.wrap { max-width: 480px; margin: 0 auto; display: flex; flex-direction: column; gap: 18px; }
+button { font: inherit; cursor: pointer; color: inherit; }
+button:focus-visible, input:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+b, strong { font-weight: 700; }
+
+/* 공통 부품 */
+.btn { border: 0; border-radius: 12px; padding: 14px 18px; font-weight: 700; font-size: 16px; background: var(--accent); color: var(--accent-ink); }
+.btn.block { width: 100%; }
+.btn.ghost { background: var(--surface); color: var(--ink); border: 1px solid var(--line); }
+.btn.text { background: transparent; color: var(--muted); padding-inline: 6px; }
+.btn.small { padding: 9px 14px; font-size: 14px; border-radius: 10px; }
+.label { font-weight: 700; font-size: 14px; }
+.hint { margin: 0; color: var(--muted); font-size: 14px; }
+.err { color: var(--warn); font-size: 14px; font-weight: 500; min-height: 1.5em; margin: 0; }
+.err:empty { display: none; }
+.field { display: flex; flex-direction: column; gap: 8px; }
+input[type=text] {
+  font: inherit; font-size: 17px; padding: 13px 14px; border-radius: 12px; border: 1px solid var(--line);
+  background: var(--surface); color: var(--ink); width: 100%; min-width: 0;
+}
+input[type=text]::placeholder { color: var(--muted); opacity: .8; }
+input[type=text]:focus { border-color: var(--accent); outline: none; box-shadow: 0 0 0 3px var(--accent-soft); }
+.seg { display: flex; gap: 4px; padding: 4px; border: 1px solid var(--line); border-radius: 12px; background: var(--surface); }
+.seg button { flex: 1; border: 0; background: transparent; border-radius: 9px; padding: 10px; font-weight: 700; color: var(--muted); font-variant-numeric: tabular-nums; }
+.seg button[aria-pressed="true"] { background: var(--accent); color: var(--accent-ink); }
+.row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+.confirm { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; font-size: 14px; }
+.full { flex-basis: 100%; }
+.full .confirm .msg { flex-basis: 100%; }
+.full .confirm .btn { flex: 1 1 0; }
+
+/* 시작 화면 */
+.hero { text-align: center; padding-block: 12px 4px; display: flex; flex-direction: column; gap: 6px; }
+.hero h1 { margin: 0; font-size: 44px; font-weight: 800; line-height: 1.1; letter-spacing: -.02em; color: var(--accent); }
+.hero p { margin: 0; color: var(--muted); font-size: 14px; }
+.rules { background: var(--soft); border: 1px solid var(--line); border-radius: 16px; padding: 18px; display: flex; flex-direction: column; gap: 12px; }
+.rules h2 { margin: 0; font-size: 15px; font-weight: 700; }
+.steps { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 10px; }
+.steps li { display: grid; grid-template-columns: 24px minmax(0, 1fr); gap: 10px; align-items: start; font-size: 14.5px; }
+.steps .num {
+  width: 24px; height: 24px; border-radius: 50%; background: var(--surface); border: 1px solid var(--line);
+  color: var(--muted); font-size: 12px; font-weight: 700; display: grid; place-items: center; margin-top: 1px; font-variant-numeric: tabular-nums;
+}
+.fixed { display: flex; justify-content: space-between; align-items: center; gap: 8px; padding: 14px 16px; border: 1px solid var(--line); border-radius: 12px; background: var(--surface); }
+.fixed strong { color: var(--accent); }
+.startForm { display: flex; flex-direction: column; gap: 10px; }
+
+/* 판 화면 */
+.bar { display: flex; justify-content: space-between; align-items: center; gap: 12px; }
+.bar h2 { margin: 0; font-size: 24px; font-weight: 800; letter-spacing: -.01em; line-height: 1.2; }
+.who { color: var(--muted); font-size: 14px; }
+.pill { flex: 0 0 auto; display: inline-flex; align-items: baseline; gap: 3px; background: var(--accent-soft); color: var(--accent); border-radius: 999px; padding: 7px 16px; font-weight: 700; font-variant-numeric: tabular-nums; }
+.pill b { font-size: 20px; font-weight: 800; }
+.pill.win { background: var(--accent); color: var(--accent-ink); }
+.stage { list-style: none; margin: 0; padding: 0; display: flex; gap: 18px; font-size: 14px; color: var(--muted); }
+.stage li { display: flex; align-items: center; gap: 7px; }
+.stage li span { width: 20px; height: 20px; border-radius: 50%; border: 1px solid var(--line); display: grid; place-items: center; font-size: 11.5px; font-weight: 700; }
+.stage li.on { color: var(--ink); font-weight: 700; }
+.stage li.on span { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }
+.banner { border: 0; width: 100%; display: flex; justify-content: space-between; align-items: center; gap: 8px; flex-wrap: wrap; background: var(--accent); color: var(--accent-ink); border-radius: 12px; padding: 12px 16px; font-weight: 700; text-align: left; }
+.banner span:last-child { font-weight: 500; opacity: .85; font-size: 14px; }
+.callForm { display: flex; gap: 8px; }
+.callForm input { flex: 1; }
+
+.board { display: grid; grid-template-columns: repeat(var(--n), minmax(0, 1fr)); gap: 6px; }
+.board.n5 { gap: 5px; }
+.cell {
+  position: relative; aspect-ratio: 1; max-width: 100%; min-width: 0;
+  border: 1px solid var(--line); background: var(--surface); color: var(--ink); border-radius: 10px; padding: 6px 5px;
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px;
+  text-align: center; overflow: hidden; word-break: keep-all; overflow-wrap: anywhere;
+  transition: background-color .15s, border-color .15s;
+}
+.cell .q { font-size: clamp(10.5px, 2.9vw, 13px); line-height: 1.3; color: var(--muted); }
+.cell .nm { font-size: clamp(13px, 3.9vw, 17px); font-weight: 700; line-height: 1.2; }
+.n5 .cell { border-radius: 8px; padding: 4px 3px; gap: 2px; }
+.n5 .cell .q { font-size: clamp(9px, 2.3vw, 11.5px); line-height: 1.25; }
+.n5 .cell .nm { font-size: clamp(11px, 3.1vw, 14.5px); }
+.cell.filled .q { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.cell.free.empty { border-style: dashed; border-color: var(--muted); }
+.cell.free.empty .q { font-size: clamp(24px, 7vw, 34px); font-weight: 800; color: var(--accent); line-height: 1; }
+.board.play .cell.empty { background: var(--soft); }
+.board.play .cell.empty .q { opacity: .6; }
+.board.play .cell.marked { background: var(--accent-soft); border-color: var(--accent-soft); }
+.board.play .cell.marked .q { display: none; }
+.board.play .cell.line { border-color: var(--accent); box-shadow: inset 0 0 0 1px var(--accent); }
+.ck { position: absolute; top: 5px; right: 5px; width: 18px; height: 18px; border-radius: 50%; background: var(--accent); color: var(--accent-ink); display: grid; place-items: center; }
+.ck svg { width: 12px; height: 12px; }
+.n5 .ck { top: 3px; right: 3px; width: 14px; height: 14px; }
+.n5 .ck svg { width: 10px; height: 10px; }
+.foot { display: flex; justify-content: space-between; gap: 8px; flex-wrap: wrap; align-items: center; }
+
+/* 입력창 · 빙고 화면 */
+.scrim { position: fixed; inset: 0; background: var(--scrim); display: flex; align-items: flex-end; justify-content: center; z-index: 20; }
+.sheet {
+  background: var(--surface); width: 100%; max-width: 480px; border-radius: 20px 20px 0 0;
+  padding: 10px max(18px, env(safe-area-inset-right, 0px)) calc(20px + env(safe-area-inset-bottom, 0px)) max(18px, env(safe-area-inset-left, 0px));
+  display: flex; flex-direction: column; gap: 14px;
+}
+.sheet::before { content: ""; width: 36px; height: 4px; border-radius: 2px; background: var(--line); align-self: center; }
+.sheet .cap { font-size: 12px; font-weight: 700; letter-spacing: .08em; color: var(--muted); }
+.sheet .cond { font-size: 21px; font-weight: 700; line-height: 1.35; margin: 2px 0 0; text-wrap: balance; }
+.sheet input[type=text] { background: var(--bg); }
+.sheet .row .btn:first-child { flex: 1 1 140px; }
+.win-scrim { align-items: center; }
+.win-card {
+  background: var(--surface); color: var(--ink); border-radius: 20px; padding: 32px 24px 24px; max-width: 400px; width: calc(100% - 32px);
+  text-align: center; display: flex; flex-direction: column; gap: 8px;
+}
+.win-card .big { font-size: 64px; font-weight: 800; line-height: 1.05; color: var(--accent); letter-spacing: -.02em; }
+.win-card .nm { font-size: 24px; font-weight: 700; }
+.win-card .t { font-variant-numeric: tabular-nums; color: var(--muted); }
+.win-card .btn { margin-top: 12px; }
+canvas#fx { position: fixed; inset: 0; pointer-events: none; z-index: 30; width: 100%; height: 100%; }
+@media (prefers-reduced-motion: reduce) { canvas#fx { display: none; } .cell { transition: none; } }
+</style>
+
+<div class="wrap" id="app">
+  <header class="hero"><h1>사람 빙고</h1><p>불러오는 중…</p></header>
+</div>
+<canvas id="fx" hidden></canvas>
+
+<script>
+(function () {
+  // 인쇄용 빙고판의 칸 + 밸런스 게임 칸. q = 칸에 보이는 글, full = 입력창 제목, sub = 공통점 질문
+  // 판마다 일반 칸에서 무작위로 뽑는다 — 5×5 는 22개 + 자유 칸 3개, 4×4 는 15개 + 자유 칸 1개
+  var POOL = [
+    { q: "나와 같은 지역에 사는 사람", sub: "어느 지역?" },
+    { q: "형제자매 수가 같은 사람", sub: "형제자매 몇 명?" },
+    { q: "부먹·찍먹이 같은 사람", full: "탕수육 부먹 vs 찍먹, 나와 같은 사람", sub: "나는 어느 쪽?" },
+    { q: "민초 호·불호가 같은 사람", full: "민트초코 호 vs 불호, 나와 같은 사람", sub: "나는 어느 쪽?" },
+    { q: "짜장·짬뽕이 같은 사람", full: "짜장면 vs 짬뽕, 나와 같은 사람", sub: "나는 어느 쪽?" },
+    { q: "물냉·비냉이 같은 사람", full: "물냉면 vs 비빔냉면, 나와 같은 사람", sub: "나는 어느 쪽?" },
+    { q: "양념·후라이드가 같은 사람", full: "치킨 양념 vs 후라이드, 나와 같은 사람", sub: "나는 어느 쪽?" },
+    { q: "팥붕·슈붕이 같은 사람", full: "팥 붕어빵 vs 슈크림 붕어빵, 나와 같은 사람", sub: "나는 어느 쪽?" },
+    { q: "붕어빵 먹는 쪽이 같은 사람", full: "붕어빵 머리부터 vs 꼬리부터, 나와 같은 사람", sub: "나는 어느 쪽?" },
+    { q: "깻잎 논쟁 같은 편인 사람", full: "애인이 내 친구 깻잎을 떼 준다 — 괜찮다 vs 안 된다, 나와 같은 사람", sub: "나는 어느 쪽?" },
+    { q: "카톡 답장 속도가 같은 사람", full: "카톡 답장 바로바로 vs 몰아서 나중에, 나와 같은 사람", sub: "나는 어느 쪽?" },
+    { q: "집콕·밖파가 같은 사람", full: "쉬는 날 집에 있기 vs 밖에 나가기, 나와 같은 사람", sub: "나는 어느 쪽?" },
+    { q: "바다·산이 같은 사람", full: "휴가는 바다 vs 산, 나와 같은 사람", sub: "나는 어느 쪽?" },
+    { q: "아이폰·갤럭시가 같은 사람", full: "아이폰 vs 갤럭시, 나와 같은 폰을 쓰는 사람", sub: "나는 어느 쪽?" },
+    { q: "나와 같은 여행지에 가 본 사람", sub: "어디로 갔나요?" },
+    { q: "취미가 같은 사람", sub: "어떤 취미인가요?" },
+    { q: "나와 음악 취향이 같은 사람", sub: "좋아하는 음악 장르는?" },
+    { q: "좋아하는 운동이 같은 사람", sub: "어떤 운동을 좋아하나요?" },
+    { q: "나와 나이가 세 살 이상 차이 나는 사람", sub: "나이 차이 몇 살?" },
+    { q: "좋아하는 영화 장르가 같은 사람", sub: "어떤 장르를 좋아하나요?" },
+    { q: "가고 싶은 나라가 같은 사람", sub: "어떤 나라를 가고 싶나요?" },
+    { q: "좋아하는 계절이 같은 사람", sub: "어떤 계절을 좋아하나요?" },
+    { q: "아침형·저녁형이 같은 사람", full: "일찍 일어나는 새 vs 늦게 활동하는 부엉이, 나와 같은 사람", sub: "나는 어떤 타입인가요?" },
+    { q: "MBTI E/I가 같은 사람", full: "MBTI E vs I, 나와 같은 사람", sub: "어떤 쪽인가요?" },
+    { q: "MBTI N/S가 같은 사람", full: "MBTI N vs S, 나와 같은 사람", sub: "어떤 쪽인가요?" },
+    { q: "MBTI F/T가 같은 사람", full: "MBTI F vs T, 나와 같은 사람", sub: "어떤 쪽인가요?" },
+    { q: "MBTI J/P가 같은 사람", full: "MBTI J vs P, 나와 같은 사람", sub: "어떤 쪽인가요?" },
+    { q: "나와 같은 혈액형인 사람", sub: "혈액형이 무엇인가요?" },
+    { q: "나와 셀이 같은 사람", sub: "누구 셀인가요?" },
+    { q: "좋아하는 카페 음료가 같은 사람", sub: "어떤 음료를 좋아하나요?" },
+    { q: "한·양·일·중식 취향이 같은 사람", full: "한식 vs 양식 vs 일식 vs 중식, 나와 같은 사람", sub: "어떤 음식을 좋아하나요?" },
+    { q: "최애 아이스크림 맛이 같은 사람", sub: "어떤 맛인가요?" },
+    { q: "?", full: "자유 칸 · 나와 공통점이 있는 사람", sub: "어떤 공통점인가요?", free: true },
+    { q: "?", full: "자유 칸 · 나와 공통점이 있는 사람", sub: "어떤 공통점인가요?", free: true },
+    { q: "?", full: "자유 칸 · 나와 공통점이 있는 사람", sub: "어떤 공통점인가요?", free: true }
+  ];
+  var CHECK = '<span class="ck" aria-hidden="true"><svg viewBox="0 0 16 16"><path d="M3.5 8.5l3 3 6-6.5" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg></span>';
+  function full(qi) { return POOL[qi].full || POOL[qi].q; }
+  var KEY = "people-bingo-v3";
+  var app = document.getElementById("app");
+  var state = null;
+  var preset = parseHash();
+  var pick = { n: preset ? preset.n : 4, goal: preset ? preset.goal : 3 };
+
+  function parseHash() {
+    var m = /^s([45])(?:g([1-5]))?$/.exec(location.hash.slice(1));
+    return m ? { n: +m[1], goal: m[2] ? Math.min(+m[2], +m[1] * 2 + 2) : 3 } : null;
+  }
+  function load() { try { var s = JSON.parse(localStorage.getItem(KEY)); return s && s.v === 3 ? s : null; } catch (e) { return null; } }
+  function save() { try { localStorage.setItem(KEY, JSON.stringify(state)); } catch (e) {} }
+  function clearSave() { try { localStorage.removeItem(KEY); } catch (e) {} }
+  function norm(s) { return String(s || "").replace(/\s+/g, "").toLowerCase(); }
+  function esc(s) { return String(s).replace(/[&<>"']/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]; }); }
+  function clock(t) { var d = new Date(t); return d.toLocaleTimeString("ko-KR", { hour: "numeric", minute: "2-digit", second: "2-digit" }); }
+  // 판을 보는 동안 화면이 꺼지지 않게 한다 (지원하지 않는 휴대폰은 그냥 넘어감)
+  var lock = null, asking = false;
+  function keepAwake() {
+    if (!state || lock || asking || !navigator.wakeLock || document.visibilityState !== "visible") return;
+    asking = true;
+    try {
+      navigator.wakeLock.request("screen").then(function (l) {
+        lock = l; l.addEventListener("release", function () { lock = null; });
+      }).catch(function () {}).then(function () { asking = false; });
+    } catch (e) { asking = false; }
+  }
+  function releaseAwake() { if (lock) { lock.release().catch(function () {}); lock = null; } }
+  document.addEventListener("visibilitychange", keepAwake);
+  function shuffle(a) { for (var i = a.length - 1; i > 0; i--) { var j = Math.floor(Math.random() * (i + 1)); var x = a[i]; a[i] = a[j]; a[j] = x; } return a; }
+
+  function lines(n) {
+    var L = [], i, j, r, c, d1 = [], d2 = [];
+    for (i = 0; i < n; i++) { r = []; c = []; for (j = 0; j < n; j++) { r.push(i * n + j); c.push(j * n + i); } L.push(r, c); d1.push(i * n + i); d2.push(i * n + (n - 1 - i)); }
+    L.push(d1, d2);
+    return L;
+  }
+  function done() {
+    var hit = {}, count = 0;
+    lines(state.n).forEach(function (l) {
+      if (l.every(function (k) { return state.marks[k]; })) { count++; l.forEach(function (k) { hit[k] = true; }); }
+    });
+    return { count: count, hit: hit };
+  }
+
+  // ---------- 시작 화면 ----------
+  function renderStart() {
+    var goal = preset ? preset.goal : pick.goal;
+    var rules = [
+      "칸의 조건에 맞는 사람을 찾아 말을 걸어요.",
+      "칸을 눌러 그 사람의 이름과 공통점을 적어요. <b>?</b> 칸은 어떤 공통점이든 좋아요.",
+      "<b>한 사람에게 한 칸만</b> 받을 수 있어요.",
+      "다 모으면 「빙고 시작」을 누르고 자리로 돌아가요.",
+      "이름이 불리면 내 판에서 그 칸을 눌러 지워요.",
+      "가로·세로·대각선 <b>" + goal + "줄</b>을 먼저 지우면 빙고! 진행자에게 화면을 보여 주세요."
+    ];
+    var setting = preset
+      ? '<div class="fixed"><span class="label">진행자 설정</span><strong>' + preset.n + '×' + preset.n + ' · ' + preset.goal + '줄 빙고</strong></div>'
+      : '<div class="field"><span class="label" id="sizeLbl">판 크기 <span class="hint">· 목표 ' + goal + '줄</span></span><div class="seg" role="group" aria-labelledby="sizeLbl">' +
+        '<button type="button" data-n="4" aria-pressed="' + (pick.n === 4) + '">4×4</button>' +
+        '<button type="button" data-n="5" aria-pressed="' + (pick.n === 5) + '">5×5</button></div></div>';
+    app.innerHTML =
+      '<header class="hero"><h1>사람 빙고</h1><p>다른 사람들과 더 가까워지는 시간</p></header>' +
+      '<section class="rules"><h2>게임 방법</h2><ol class="steps">' +
+      rules.map(function (r, i) { return '<li><span class="num">' + (i + 1) + '</span><span>' + r + '</span></li>'; }).join("") +
+      '</ol></section>' +
+      setting +
+      '<form class="startForm" id="startForm"><div class="field"><label class="label" for="myName">내 이름</label>' +
+      '<input type="text" id="myName" maxlength="12" autocomplete="off" placeholder="예: 김은혜"></div>' +
+      '<p class="err" id="startErr"></p>' +
+      '<button class="btn block" type="submit">빙고판 받기</button></form>';
+    app.querySelectorAll("[data-n]").forEach(function (b) {
+      b.onclick = function () { pick.n = +b.dataset.n; renderStart(); };
+    });
+    document.getElementById("startForm").onsubmit = function (e) {
+      e.preventDefault();
+      var nm = document.getElementById("myName").value.trim().replace(/\s+/g, " ");
+      if (!nm) { document.getElementById("startErr").textContent = "이름을 적어 주세요."; return; }
+      var n = preset ? preset.n : pick.n, goal = preset ? preset.goal : pick.goal;
+      var normal = [], free = [];
+      POOL.forEach(function (p, i) { (p.free ? free : normal).push(i); });
+      var idx = n === 5 ? shuffle(shuffle(normal).slice(0, 22).concat(free)) : shuffle(shuffle(normal).slice(0, 15).concat(free.slice(0, 1)));
+      state = { v: 3, me: nm, n: n, goal: goal, phase: "fill", qs: idx, names: idx.map(function () { return ""; }), notes: idx.map(function () { return ""; }), marks: idx.map(function () { return false; }), startedAt: Date.now(), bingoAt: null };
+      save();
+      renderBoard();
+      window.scrollTo(0, 0);
+    };
+  }
+
+  // ---------- 판 화면 ----------
+  // 1단계(fill): 돌아다니며 이름 모으기 → 2단계(play): 불린 이름의 칸을 지워 빙고
+  function renderBoard(msg) {
+    keepAwake();
+    var play = state.phase === "play";
+    var d = done(), win = d.count >= state.goal, total = state.n * state.n, filled = state.names.filter(Boolean).length;
+    var cells = state.qs.map(function (qi, k) {
+      var nm = state.names[k], p = POOL[qi], mk = play && state.marks[k];
+      var q = p.free ? (nm ? esc(state.notes[k] || "자유 칸") : "?") : esc(p.q);
+      return '<button class="cell' + (nm ? " filled" : " empty") + (mk ? " marked" : "") + (play && d.hit[k] ? " line" : "") + (p.free ? " free" : "") + '" data-k="' + k + '" aria-pressed="' + !!mk + '" aria-label="' + esc(full(qi)) + (nm ? ", " + esc(nm) : ", 비어 있음") + (mk ? ", 지움" : "") + '">' +
+        '<span class="q">' + q + '</span>' + (nm ? '<span class="nm">' + esc(nm) + '</span>' : '') + (mk ? CHECK : '') + '</button>';
+    }).join("");
+    var status = play
+      ? '<span class="pill' + (win ? " win" : "") + '" aria-label="지운 줄 ' + d.count + ' / 목표 ' + state.goal + '줄"><b>' + d.count + '</b>/ ' + state.goal + '줄</span>'
+      : '<span class="pill" aria-label="모은 이름 ' + filled + ' / ' + total + '칸"><b>' + filled + '</b>/ ' + total + '칸</span>';
+    var stage = '<ol class="stage" aria-label="진행 단계">' +
+      '<li' + (play ? '' : ' class="on" aria-current="step"') + '><span>1</span>이름 모으기</li>' +
+      '<li' + (play ? ' class="on" aria-current="step"' : '') + '><span>2</span>빙고 · ' + state.goal + '줄</li></ol>';
+    var guide = state.bingoAt ? '<button class="banner" id="reopen"><span>' + clock(state.bingoAt) + ' 빙고 완성</span><span>진행자에게 보여 주기</span></button>'
+      : play ? '<form class="callForm" id="callForm"><label for="called" class="label" style="position:absolute;left:-9999px">불린 이름</label><input type="text" id="called" maxlength="12" autocomplete="off" placeholder="불린 이름 입력"><button class="btn small" type="submit">지우기</button></form>'
+      : '<p class="hint">칸을 눌러 조건에 맞는 사람의 이름을 적으세요.</p>';
+    var foot = play
+      ? '<span class="hint">지운 칸 ' + state.marks.filter(Boolean).length + ' / ' + filled + '</span><button class="btn ghost small" id="back">이름 고치기</button><span id="resetBox"><button class="btn text small" id="reset">새 판 받기</button></span>'
+      : '<span id="startBox"><button class="btn" id="go">빙고 시작</button></span><span id="resetBox"><button class="btn text small" id="reset">새 판 받기</button></span>';
+    app.innerHTML =
+      '<header class="bar"><div><h2>사람 빙고</h2><div class="who">' + esc(state.me) + ' · ' + state.n + '×' + state.n + '</div></div>' + status + '</header>' +
+      stage + guide + '<p class="err" id="boardMsg">' + esc(msg || "") + '</p>' +
+      '<div class="board n' + state.n + (play ? " play" : "") + '" style="--n:' + state.n + '">' + cells + '</div>' +
+      '<div class="foot">' + foot + '</div>';
+    app.querySelectorAll(".cell").forEach(function (b) {
+      b.onclick = function () { var k = +b.dataset.k; if (play) toggleMark(k); else openSheet(k); };
+    });
+    var re = document.getElementById("reopen"); if (re) re.onclick = showWin;
+    var cf = document.getElementById("callForm");
+    if (cf) cf.onsubmit = function (e) {
+      e.preventDefault();
+      var v = norm(document.getElementById("called").value);
+      if (!v) return;
+      var k = state.names.findIndex(function (x) { return norm(x) === v; });
+      if (k < 0) { renderBoard("내 판에 없는 이름이에요."); return; }
+      if (state.marks[k]) { renderBoard(state.names[k] + "님은 이미 지웠어요."); return; }
+      toggleMark(k);
+    };
+    var go = document.getElementById("go");
+    if (go) go.onclick = function () {
+      function start() { state.phase = "play"; save(); renderBoard(); window.scrollTo(0, 0); }
+      if (filled === total) { start(); return; }
+      var sb = document.getElementById("startBox");
+      sb.className = "full";
+      sb.innerHTML = '<span class="confirm"><span class="msg">빈칸 ' + (total - filled) + '개는 지울 수 없어요.</span><button class="btn small" id="go2">그래도 시작</button><button class="btn ghost small" id="no2">더 모으기</button></span>';
+      document.getElementById("go2").onclick = start;
+      document.getElementById("no2").onclick = function () { renderBoard(); };
+    };
+    var back = document.getElementById("back");
+    if (back) back.onclick = function () { state.phase = "fill"; save(); renderBoard(); };
+    document.getElementById("reset").onclick = function () {
+      var rb = document.getElementById("resetBox");
+      rb.className = "full";
+      rb.innerHTML = '<span class="confirm"><span class="msg">지금 판이 지워져요.</span><button class="btn small" id="yes">새 판 받기</button><button class="btn ghost small" id="no">취소</button></span>';
+      document.getElementById("yes").onclick = function () { clearSave(); state = null; releaseAwake(); renderStart(); window.scrollTo(0, 0); };
+      document.getElementById("no").onclick = function () { renderBoard(); };
+    };
+  }
+
+  function toggleMark(k) {
+    if (!state.names[k]) { renderBoard("빈칸은 지울 수 없어요."); return; }
+    var before = done().count;
+    state.marks[k] = !state.marks[k];
+    var after = done().count;
+    if (!state.bingoAt && after >= state.goal) state.bingoAt = Date.now();
+    save(); renderBoard();
+    if (before < state.goal && after >= state.goal) { showWin(); burst(); }
+  }
+
+  function openSheet(k) {
+    var p = POOL[state.qs[k]];
+    var scrim = document.createElement("div");
+    scrim.className = "scrim";
+    scrim.innerHTML =
+      '<form class="sheet" id="sheetForm"><div><div class="cap">이 칸의 조건</div>' +
+      '<p class="cond">' + esc(full(state.qs[k])) + '</p></div>' +
+      '<div class="field"><label class="label" for="cellName">찾은 사람 이름</label>' +
+      '<input type="text" id="cellName" maxlength="12" autocomplete="off" value="' + esc(state.names[k]) + '" placeholder="그 사람에게 직접 적어 달라고 해도 좋아요"></div>' +
+      '<div class="field"><label class="label" for="cellNote">' + esc(p.sub) + (p.free ? '' : ' <span class="hint">(가능하면)</span>') + '</label>' +
+      '<input type="text" id="cellNote" maxlength="30" autocomplete="off" value="' + esc(state.notes[k]) + '" placeholder="공통점을 짧게"></div>' +
+      '<p class="err" id="cellErr"></p>' +
+      '<div class="row"><button class="btn" type="submit">저장</button>' +
+      (state.names[k] ? '<button class="btn ghost" type="button" id="clear">칸 비우기</button>' : '') +
+      '<button class="btn ghost" type="button" id="close">닫기</button></div></form>';
+    document.body.appendChild(scrim);
+    var input = document.getElementById("cellName");
+    setTimeout(function () { input.focus(); }, 50);
+    function close() { scrim.remove(); }
+    scrim.addEventListener("click", function (e) { if (e.target === scrim) close(); });
+    document.getElementById("close").onclick = close;
+    var cl = document.getElementById("clear");
+    if (cl) cl.onclick = function () { state.names[k] = ""; state.notes[k] = ""; state.marks[k] = false; save(); close(); renderBoard(); };
+    document.getElementById("sheetForm").onsubmit = function (e) {
+      e.preventDefault();
+      var nm = input.value.trim().replace(/\s+/g, " "), err = document.getElementById("cellErr");
+      if (!nm) { err.textContent = "이름을 적어 주세요."; return; }
+      if (norm(nm) === norm(state.me)) { err.textContent = "내 이름은 쓸 수 없어요. 다른 사람을 찾아보세요."; return; }
+      for (var i = 0; i < state.names.length; i++) {
+        if (i !== k && norm(state.names[i]) === norm(nm)) { err.textContent = nm + "님은 이미 '" + full(state.qs[i]) + "' 칸에 있어요. 한 사람에게 한 칸만 받을 수 있어요. 이름이 같은 다른 사람이면 '" + nm + "B'처럼 적어 주세요."; return; }
+      }
+      var note = document.getElementById("cellNote").value.trim();
+      if (p.free && !note) { err.textContent = "? 칸은 어떤 공통점인지 적어 주세요."; return; }
+      if (norm(state.names[k]) !== norm(nm)) state.marks[k] = false;
+      state.names[k] = nm;
+      state.notes[k] = note;
+      save(); close(); renderBoard();
+    };
+  }
+
+  function showWin() {
+    var scrim = document.createElement("div");
+    scrim.className = "scrim win-scrim";
+    scrim.innerHTML = '<div class="win-card" role="dialog" aria-label="빙고 완성"><div class="big">빙고!</div>' +
+      '<div class="nm">' + esc(state.me) + '</div>' +
+      '<div class="t">' + state.goal + '줄 완성 · ' + clock(state.bingoAt) + '</div>' +
+      '<div>진행자에게 이 화면을 보여 주세요</div>' +
+      '<button class="btn block" id="winClose">판 다시 보기</button></div>';
+    document.body.appendChild(scrim);
+    document.getElementById("winClose").onclick = function () { scrim.remove(); };
+  }
+
+  // 빙고 순간 색종이 (움직임 줄이기 설정이면 꺼짐)
+  function burst() {
+    if (window.matchMedia && matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+    var cv = document.getElementById("fx"), ctx = cv.getContext("2d");
+    cv.hidden = false; cv.width = innerWidth; cv.height = innerHeight;
+    var cs = getComputedStyle(document.documentElement);
+    var colors = ["--accent", "--accent-soft", "--muted"].map(function (v) { return cs.getPropertyValue(v).trim(); });
+    var ps = [], i;
+    for (i = 0; i < 120; i++) ps.push({ x: cv.width / 2, y: cv.height * .45, vx: (Math.random() - .5) * 14, vy: -Math.random() * 14 - 4, r: Math.random() * 6 + 4, c: colors[i % 3], a: Math.random() * 6 });
+    var t0 = performance.now();
+    (function tick(t) {
+      ctx.clearRect(0, 0, cv.width, cv.height);
+      ps.forEach(function (p) { p.vy += .35; p.x += p.vx; p.y += p.vy; p.a += .2; ctx.fillStyle = p.c; ctx.save(); ctx.translate(p.x, p.y); ctx.rotate(p.a); ctx.fillRect(-p.r / 2, -p.r / 4, p.r, p.r / 2); ctx.restore(); });
+      if (t - t0 < 2200) requestAnimationFrame(tick); else { ctx.clearRect(0, 0, cv.width, cv.height); cv.hidden = true; }
+    })(t0);
+  }
+
+  state = load();
+  // 같은 크기 판이 저장돼 있으면 이어서 하되, 목표 줄 수는 지금 연 QR(진행자 설정)을 따른다
+  if (state && (!preset || (preset.n === state.n))) {
+    if (preset && preset.goal !== state.goal) {
+      state.goal = preset.goal;
+      if (state.bingoAt && done().count < state.goal) state.bingoAt = null;
+      save();
+    }
+    renderBoard();
+  } else { state = null; renderStart(); }
+})();
+</script>
